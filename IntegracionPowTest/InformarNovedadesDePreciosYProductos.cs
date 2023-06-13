@@ -10,9 +10,11 @@ namespace IntegracionPowTest
     public class InformarNovedadesDePreciosYProductos
     {
         private readonly ILogger _logger;
+        private readonly HttpClient _httpClient;
 
-        public InformarNovedadesDePreciosYProductos(ILoggerFactory loggerFactory) {
+        public InformarNovedadesDePreciosYProductos(ILoggerFactory loggerFactory, IHttpClientFactory httpClientFactory) {
             _logger = loggerFactory.CreateLogger<InformarNovedadesDePreciosYProductos>();
+            _httpClient = httpClientFactory.CreateClient();
         }
 
         [Function("InformarNovedadesDePreciosYProductos")]
