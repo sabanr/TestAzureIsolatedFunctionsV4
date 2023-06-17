@@ -13,6 +13,14 @@ public  class Configuraciones {
         }
     }
     /// <summary>
+    /// Obtiene el email asociado a la cuenta API de POW
+    /// </summary>
+    public string PowEmail { get; set; }
+    /// <summary>
+    /// Obtiene el password asociado a la cuenta API de POW
+    /// </summary>
+    public string PowPassword { get; set; }
+    /// <summary>
     /// El número máximo de elementos a enviar por vez. 
     /// </summary>
     public int NumeroDeObjetosPorLote { get; set; }

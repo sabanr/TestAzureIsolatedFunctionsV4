@@ -14,19 +14,6 @@ public class InformarNovedadesDePreciosYProductos
     private const string TipoDeDocumentoPrecios = "PreciosDeProducto";
     private const string TipoDeDocumentoStock = "StockDeProducto";
 
-    /// <summary>
-    /// Obtiene el email asociado a la cuenta API de POW
-    /// </summary>
-    private static string PowEmail {
-        get { return Environment.GetEnvironmentVariable("powEmail", EnvironmentVariableTarget.Process) ?? string.Empty; }
-    }
-    /// <summary>
-    /// Obtiene el password asociado a la cuenta API de POW
-    /// </summary>
-    private static string PowPassword {
-        get { return Environment.GetEnvironmentVariable("powPassword", EnvironmentVariableTarget.Process) ?? string.Empty; }
-    }
-
     public InformarNovedadesDePreciosYProductos(ILoggerFactory creadorDeLogs, IHttpClientFactory creadorDeClienteHttp, IOptions<Configuraciones> opciones) {
         _log = creadorDeLogs.CreateLogger<InformarNovedadesDePreciosYProductos>();
         _clienteHttp = creadorDeClienteHttp.CreateClient();
@@ -57,13 +44,9 @@ public class InformarNovedadesDePreciosYProductos
 
             foreach (JsonObject[] documentos in documentosDivididos) {
 
-                // generar json
-                var pedidoJson = new JsonObject
-                {
-                    ["email"] = PowEmail,
-                    ["password"] = PowPassword,
-                    ["sucursalId"] = null
-                };
+                // TODO: podemos ordenar primero los elementos del array documentos por sucursal
+                // TODO: y hacer un corte de control, al cambiar de sucursal, envio los registros que tengo
+                // TODO: si salgo sin enviar (son todos de la misma sucursal, envio!
 
                 var variantes = new JsonArray();
                 
