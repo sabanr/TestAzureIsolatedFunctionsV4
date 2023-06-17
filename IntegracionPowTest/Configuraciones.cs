@@ -1,9 +1,9 @@
 ﻿namespace IntegracionPowTest;
 
 public  class Configuraciones {
-    public string SucursalesCsv { get; set; }
+    public string SucursalesCsv { get; set; } = string.Empty;
     /// <summary>
-    /// Lista de sucursales id, cuyos stock y precios vamos a informar
+    /// Lista de sucursales Id, cuyos stock vamos a informar
     /// </summary>
     public IEnumerable<int> SucursalesHabilitadas {
         get {
@@ -13,13 +13,18 @@ public  class Configuraciones {
         }
     }
     /// <summary>
+    /// Lista de precios Id, cuyos precios vamos a informar
+    /// </summary>
+    public int ListaDePreciosId { get; set; }
+    /// <summary>
     /// Obtiene el email asociado a la cuenta API de POW
     /// </summary>
-    public string PowEmail { get; set; }
+    public string PowEmail { get; set; } = string.Empty;
+
     /// <summary>
     /// Obtiene el password asociado a la cuenta API de POW
     /// </summary>
-    public string PowPassword { get; set; }
+    public string PowPassword { get; set; } = string.Empty;
     /// <summary>
     /// El número máximo de elementos a enviar por vez. 
     /// </summary>
