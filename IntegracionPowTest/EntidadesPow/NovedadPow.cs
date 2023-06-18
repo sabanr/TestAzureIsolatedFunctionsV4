@@ -1,7 +1,8 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace IntegracionPowTest;
-public class NovedadPow {
+namespace IntegracionPowTest.EntidadesPow;
+public class NovedadPow
+{
     [JsonRequired]
     [JsonPropertyName("email")]
     public string Email { get; set; } = string.Empty;

@@ -2,7 +2,7 @@
 
 namespace IntegracionPowTest.Entidades;
 
-public class Sucursal {
+public record Sucursal {
     [JsonPropertyName("id")]
     public int Id { get; set; }
     [JsonPropertyName("descripcion")]

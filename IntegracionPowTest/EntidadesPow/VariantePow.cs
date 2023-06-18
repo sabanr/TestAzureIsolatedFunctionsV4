@@ -1,8 +1,9 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace IntegracionPowTest;
+namespace IntegracionPowTest.EntidadesPow;
 
-public class VariantePow : IComparable<VariantePow>, IComparable<string> {
+public class VariantePow : IComparable<VariantePow>, IComparable<string>
+{
 
     [JsonRequired]
     [JsonPropertyOrder(1)]
@@ -14,17 +15,20 @@ public class VariantePow : IComparable<VariantePow>, IComparable<string> {
     [JsonPropertyOrder(3)]
     [JsonPropertyName("price")]
     public double? Precio { get; set; }
-   
 
-    public int CompareTo(VariantePow? other) {
+
+    public int CompareTo(VariantePow? other)
+    {
         return other == null ? 1 : string.Compare(Codigo, other.Codigo, StringComparison.CurrentCultureIgnoreCase);
     }
 
-    public int CompareTo(string? other) {
+    public int CompareTo(string? other)
+    {
         return string.Compare(Codigo, other, StringComparison.CurrentCultureIgnoreCase);
     }
 
-    public override string ToString() {
+    public override string ToString()
+    {
         return $"{Codigo} - cantidad: {Cantidad} precio: {Precio:N2}";
     }
 
