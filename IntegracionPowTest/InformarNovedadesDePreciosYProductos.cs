@@ -1,9 +1,9 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using System.Text.Json.Serialization;
 
 using IntegracionPowTest.EntidadesPow;
 using IntegracionPowTest.Enumeradores;
+using IntegracionPowTest.Validadores;
 
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
@@ -12,19 +12,19 @@ using Microsoft.Extensions.Options;
 namespace IntegracionPowTest;
 
 public class InformarNovedadesDePreciosYProductos {
+
     private readonly ILogger _log;
     private readonly HttpClient _clienteHttp;
     private readonly Configuraciones _configuraciones;
+    private readonly ValidadorDeDocumentos _validadorDeDocumentos;
+    private readonly JsonSerializerOptions _opcionesDeSerializacionPredeterminada;
 
-    private readonly JsonSerializerOptions _opcionesDeSerializacionPredeterminada = new JsonSerializerOptions {
-        DictionaryKeyPolicy = JsonNamingPolicy.CamelCase,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-    };
-
-    public InformarNovedadesDePreciosYProductos(ILoggerFactory creadorDeLogs, IHttpClientFactory creadorDeClienteHttp, IOptions<Configuraciones> opciones) {
-        _log = creadorDeLogs.CreateLogger<InformarNovedadesDePreciosYProductos>();
-        _clienteHttp = creadorDeClienteHttp.CreateClient();
+    public InformarNovedadesDePreciosYProductos(ILoggerFactory creadorDeLoggers, IHttpClientFactory creadorDeClienteHttp, IOptions<Configuraciones> opciones, JsonSerializerOptions opcionesDeSerializacionJson, ValidadorDeDocumentos validadorDeDocumentos) {
+        _log = creadorDeLoggers.CreateLogger<InformarNovedadesDePreciosYProductos>();
         _configuraciones = opciones.Value;
+        _validadorDeDocumentos = validadorDeDocumentos;
+        _clienteHttp = creadorDeClienteHttp.CreateClient();
+        _opcionesDeSerializacionPredeterminada = opcionesDeSerializacionJson;
     }
 
     [Function("InformarNovedadesDePreciosYProductos")]
@@ -33,38 +33,32 @@ public class InformarNovedadesDePreciosYProductos {
         containerName: "Productos",
         Connection = "cn",
         LeaseContainerName = "Leases",
-        LeaseContainerPrefix = "T3")] IEnumerable<JsonObject> cambios) {
+        LeaseContainerPrefix = "T3")] IEnumerable<JsonObject> cambiosEnDb) {
         
         _log.LogTrace($"{nameof(InformarNovedadesDePreciosYProductos)} comenzada");
 
-        // TODO: LogDebug las configuraciones ?
-
         try {
-
-            if (_configuraciones.SucursalesHabilitadas.Any() == false) {
-                _log.LogWarning("No hay sucursales habilitadas configuradas, nada para procesar");
-                return;
-            }
-
             _log.LogDebug($"Dividiendo documentos cambiados en lotes de {_configuraciones.NumeroDeObjetosPorLote}");
-
-            IEnumerable<JsonObject[]> cambiosAgrupados = cambios.Chunk(_configuraciones.NumeroDeObjetosPorLote);
+            IEnumerable<JsonObject[]> cambiosEnDbAgrupados = cambiosEnDb.Chunk(_configuraciones.NumeroDeObjetosPorLote);
 
             var numeroDeLote = 0;
-            foreach (JsonObject[] documentos in cambiosAgrupados) {
+            foreach (JsonObject[] cambios in cambiosEnDbAgrupados) {
 
                 numeroDeLote++;
                 var datos = new Dictionary<int, NovedadPow>();
 
                 _log.LogDebug($"Procesando lote {numeroDeLote}");
 
-                foreach (JsonObject doc in documentos) {
+                foreach (JsonObject doc in cambios) {
                     _log.LogTrace($"Procesando documento {doc["Id"]}");
 
                     var tipoDeDocumento = doc["TipoDeDocumento"]!.GetValue<string>();
 
-                    if (EsDocValido(doc,  tipoDeDocumento) == false) 
+                    (bool esValido, string mensajeDeError) = _validadorDeDocumentos.DeboProcesarDocumento(doc, tipoDeDocumento);
+                    if (esValido == false) {
+                        _log.LogTrace(mensajeDeError);
                         continue;
+                    }
 
                     ProcesarDocumento(doc, tipoDeDocumento, datos);
 
@@ -84,34 +78,6 @@ public class InformarNovedadesDePreciosYProductos {
         } finally {
             _log.LogTrace($"{nameof(InformarNovedadesDePreciosYProductos)} terminada");
         }
-    }
-
-    private bool EsDocValido(JsonNode doc, string tipoDeDocumento) {
-        _log.LogTrace($"{nameof(EsDocValido)} comenzada");
-
-        if (string.CompareOrdinal(tipoDeDocumento, FabricaDeEnumeradoresDeSkus.TipoDeDocumentoStock) != 0 && 
-            string.CompareOrdinal(tipoDeDocumento, FabricaDeEnumeradoresDeSkus.TipoDeDocumentoPrecios) != 0) {
-            
-            _log.LogTrace($"El documento {doc["Id"]!.GetValue<string>()} no es de un tipo invalido.");
-            return false;
-        }
-
-        if (string.CompareOrdinal(tipoDeDocumento, FabricaDeEnumeradoresDeSkus.TipoDeDocumentoStock) == 0 &&
-            _configuraciones.SucursalesHabilitadas.Contains(doc["sucursal"]!["Id"]!.GetValue<int>()) == false) {
-
-            _log.LogTrace($"El documento {doc["Id"]!.GetValue<string>()}. No es de una sucursal habilitada. Sucursal: {doc["sucursal"]!["descripcion"]!.GetValue<string>()}");
-            return false;
-        }
-
-        if (string.CompareOrdinal(tipoDeDocumento, FabricaDeEnumeradoresDeSkus.TipoDeDocumentoPrecios) == 0 && 
-            _configuraciones.ListaDePreciosId != doc["listaDePreciosId"]!.GetValue<int>()) {
-
-            _log.LogTrace($"El documento {doc["Id"]!.GetValue<string>()}. No es de una lista de precios habilitada. Lista: {doc["listaDePrecios"]!.GetValue<string>()}");
-            return false;
-        }
-
-        _log.LogTrace($"{nameof(EsDocValido)} terminada");
-        return true;
     }
 
     private void ProcesarDocumento(JsonNode doc, string tipoDeDocumento, IDictionary<int, NovedadPow> datos) {
@@ -171,19 +137,19 @@ public class InformarNovedadesDePreciosYProductos {
                 for (var reintentos = 0; reintentos < reintentosMaximos; reintentos++) {
                     try {
 
-                        _log.LogDebug($"{nameof(EnviarNovedadesConReintentosAsync)} enviando novedades a Pow");
+                        _log.LogDebug($"{nameof(EnviarNovedadesConReintentosAsync)} Enviando novedades a Pow");
                         HttpResponseMessage respuesta = await _clienteHttp.PostAsync("http://staging.sweet.com.ar/json_stock_update", new StringContent(json));
 
                         respuesta.EnsureSuccessStatusCode();
 
-                        _log.LogDebug($"{nameof(EnviarNovedadesConReintentosAsync)} Novedades recibidas por POW exitosamente");
+                        _log.LogDebug($"{nameof(EnviarNovedadesConReintentosAsync)} Novedades recibidas exitósamente");
                         return;
 
                     } catch (Exception error) {
-                        _log.LogError($"No se pudieron enviar las novedades a Pow. Error: {error.Message}. Se reintenta");
+                        _log.LogError($"No se pudieron enviar las novedades a Pow. Error: {error.Message}. Se reintentará nuevamente");
 
                         if (reintentos == reintentosMaximos) {
-                            _log.LogError($"Se llego al maximo numero de reintentos. No se reintetara mas");
+                            _log.LogError($"Se llego al máximo numero de reintentos. No se volverá a reintentar");
                             throw;
                         }
                     }
