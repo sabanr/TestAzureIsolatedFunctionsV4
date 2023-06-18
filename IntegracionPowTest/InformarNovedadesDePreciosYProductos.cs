@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 
 using IntegracionPowTest.EntidadesPow;
 using IntegracionPowTest.Enumeradores;
+using IntegracionPowTest.Validadores;
 
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
@@ -37,8 +38,6 @@ public class InformarNovedadesDePreciosYProductos {
         
         _log.LogTrace($"{nameof(InformarNovedadesDePreciosYProductos)} comenzada");
 
-        // TODO: LogDebug las configuraciones ?
-
         try {
 
             if (_configuraciones.SucursalesHabilitadas.Any() == false) {
@@ -62,9 +61,12 @@ public class InformarNovedadesDePreciosYProductos {
                     _log.LogTrace($"Procesando documento {doc["Id"]}");
 
                     var tipoDeDocumento = doc["TipoDeDocumento"]!.GetValue<string>();
-
-                    if (EsDocValido(doc,  tipoDeDocumento) == false) 
+                    
+                    (bool esValido, string mensajeDeError) = ValidadorDeDocumentos.DeboProcesar(_log, doc, tipoDeDocumento, _configuraciones)
+                    if (esValido == false) {
+                        _log.LogTrace(mensajeDeError);
                         continue;
+                    }
 
                     ProcesarDocumento(doc, tipoDeDocumento, datos);
 
@@ -84,34 +86,6 @@ public class InformarNovedadesDePreciosYProductos {
         } finally {
             _log.LogTrace($"{nameof(InformarNovedadesDePreciosYProductos)} terminada");
         }
-    }
-
-    private bool EsDocValido(JsonNode doc, string tipoDeDocumento) {
-        _log.LogTrace($"{nameof(EsDocValido)} comenzada");
-
-        if (string.CompareOrdinal(tipoDeDocumento, FabricaDeEnumeradoresDeSkus.TipoDeDocumentoStock) != 0 && 
-            string.CompareOrdinal(tipoDeDocumento, FabricaDeEnumeradoresDeSkus.TipoDeDocumentoPrecios) != 0) {
-            
-            _log.LogTrace($"El documento {doc["Id"]!.GetValue<string>()} no es de un tipo invalido.");
-            return false;
-        }
-
-        if (string.CompareOrdinal(tipoDeDocumento, FabricaDeEnumeradoresDeSkus.TipoDeDocumentoStock) == 0 &&
-            _configuraciones.SucursalesHabilitadas.Contains(doc["sucursal"]!["Id"]!.GetValue<int>()) == false) {
-
-            _log.LogTrace($"El documento {doc["Id"]!.GetValue<string>()}. No es de una sucursal habilitada. Sucursal: {doc["sucursal"]!["descripcion"]!.GetValue<string>()}");
-            return false;
-        }
-
-        if (string.CompareOrdinal(tipoDeDocumento, FabricaDeEnumeradoresDeSkus.TipoDeDocumentoPrecios) == 0 && 
-            _configuraciones.ListaDePreciosId != doc["listaDePreciosId"]!.GetValue<int>()) {
-
-            _log.LogTrace($"El documento {doc["Id"]!.GetValue<string>()}. No es de una lista de precios habilitada. Lista: {doc["listaDePrecios"]!.GetValue<string>()}");
-            return false;
-        }
-
-        _log.LogTrace($"{nameof(EsDocValido)} terminada");
-        return true;
     }
 
     private void ProcesarDocumento(JsonNode doc, string tipoDeDocumento, IDictionary<int, NovedadPow> datos) {

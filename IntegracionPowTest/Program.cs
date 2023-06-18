@@ -13,4 +13,6 @@ IHost host = new HostBuilder()
              })
              .Build();
 
+// TODO: LogDebug de las configuraciones no secretas
+
 host.Run();
