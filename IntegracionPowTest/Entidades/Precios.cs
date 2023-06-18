@@ -8,7 +8,8 @@ public record Precios {
     public string CodigoDeColor { get; set;} = string.Empty;
     [JsonPropertyName("color")]
     public string Color { get; set; } = string.Empty;
+
     [JsonPropertyName("preciosPorTalle")]
-    public List<PreciosPorTalle> PreciosPorTalle { get; set; } = new List<PreciosPorTalle>()
+    public List<PreciosPorTalle> PreciosPorTalle { get; set; } = new List<PreciosPorTalle>();
 
 }

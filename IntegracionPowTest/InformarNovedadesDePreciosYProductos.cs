@@ -2,8 +2,9 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
-using IntegracionPowTest.Entidades;
 using IntegracionPowTest.EntidadesPow;
+using IntegracionPowTest.Enumeradores;
+
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -14,9 +15,6 @@ public class InformarNovedadesDePreciosYProductos {
     private readonly ILogger _log;
     private readonly HttpClient _clienteHttp;
     private readonly Configuraciones _configuraciones;
-
-    private const string TipoDeDocumentoPrecios = "PreciosDeProducto";
-    private const string TipoDeDocumentoStock = "StockDeProducto";
 
     private readonly JsonSerializerOptions _opcionesDeSerializacionPredeterminada = new JsonSerializerOptions {
         DictionaryKeyPolicy = JsonNamingPolicy.CamelCase,
@@ -72,9 +70,8 @@ public class InformarNovedadesDePreciosYProductos {
 
                 }
 
-                int numeroDeVariantes = datos.Values
-                                             .SelectMany(n => n.Variantes)
-                                             .Count();
+                int numeroDeVariantes = datos.Values.Sum(n => n.Variantes.Count);
+
                 _log.LogDebug($"Lote {numeroDeLote} procesado. {numeroDeVariantes} variantes encontradas");
 
                 await EnviarNovedadesConReintentosAsync(datos, _configuraciones.ReintentosMaximos, _configuraciones.EsperaMaximaEntreReintentosMs);
@@ -92,21 +89,21 @@ public class InformarNovedadesDePreciosYProductos {
     private bool EsDocValido(JsonNode doc, string tipoDeDocumento) {
         _log.LogTrace($"{nameof(EsDocValido)} comenzada");
 
-        if (string.CompareOrdinal(tipoDeDocumento, TipoDeDocumentoStock) != 0 && 
-            string.CompareOrdinal(tipoDeDocumento, TipoDeDocumentoPrecios) != 0) {
+        if (string.CompareOrdinal(tipoDeDocumento, FabricaDeEnumeradoresDeSkus.TipoDeDocumentoStock) != 0 && 
+            string.CompareOrdinal(tipoDeDocumento, FabricaDeEnumeradoresDeSkus.TipoDeDocumentoPrecios) != 0) {
             
             _log.LogTrace($"El documento {doc["Id"]!.GetValue<string>()} no es de un tipo invalido.");
             return false;
         }
 
-        if (string.CompareOrdinal(tipoDeDocumento, TipoDeDocumentoStock) == 0 &&
+        if (string.CompareOrdinal(tipoDeDocumento, FabricaDeEnumeradoresDeSkus.TipoDeDocumentoStock) == 0 &&
             _configuraciones.SucursalesHabilitadas.Contains(doc["sucursal"]!["Id"]!.GetValue<int>()) == false) {
 
             _log.LogTrace($"El documento {doc["Id"]!.GetValue<string>()}. No es de una sucursal habilitada. Sucursal: {doc["sucursal"]!["descripcion"]!.GetValue<string>()}");
             return false;
         }
 
-        if (string.CompareOrdinal(tipoDeDocumento, TipoDeDocumentoPrecios) == 0 && 
+        if (string.CompareOrdinal(tipoDeDocumento, FabricaDeEnumeradoresDeSkus.TipoDeDocumentoPrecios) == 0 && 
             _configuraciones.ListaDePreciosId != doc["listaDePreciosId"]!.GetValue<int>()) {
 
             _log.LogTrace($"El documento {doc["Id"]!.GetValue<string>()}. No es de una lista de precios habilitada. Lista: {doc["listaDePrecios"]!.GetValue<string>()}");
@@ -134,7 +131,8 @@ public class InformarNovedadesDePreciosYProductos {
                 datos.Add(sucursalId, novedad);
             }
 
-            foreach (KeyValuePair<string, double> sku in ObtenerEnumeradorDeSkus(tipoDeDocumento, doc)) {
+            IEnumeradorDeSkus enumeradorDeSkus = FabricaDeEnumeradoresDeSkus.ObtenerEnumeradorDeSkus(_log, tipoDeDocumento, doc);
+            foreach (KeyValuePair<string, double> sku in enumeradorDeSkus.Skus(_log, doc)) {
 
                 if (novedad.Variantes.TryGetValue(new VariantePow { Codigo = sku.Key }, out VariantePow? variante) == false) {
                     variante = new VariantePow
@@ -145,12 +143,12 @@ public class InformarNovedadesDePreciosYProductos {
                 }
 
                 switch (tipoDeDocumento) {
-                    case TipoDeDocumentoStock:
+                    case FabricaDeEnumeradoresDeSkus.TipoDeDocumentoStock:
                         variante.Cantidad = sku.Value;
 
                         break;
 
-                    case TipoDeDocumentoPrecios:
+                    case FabricaDeEnumeradoresDeSkus.TipoDeDocumentoPrecios:
                         variante.Precio = sku.Value;
 
                         break;
@@ -159,49 +157,6 @@ public class InformarNovedadesDePreciosYProductos {
 
         } finally {
             _log.LogTrace($"{nameof(ProcesarDocumento)} terminada");
-        }
-    }
-
-    private IEnumerable<KeyValuePair<string, double>> ObtenerEnumeradorDeSkus(string tipoDeDocumento, JsonNode doc) => tipoDeDocumento switch
-    {
-        TipoDeDocumentoStock => ObtenerEnumeradorDeSkusDeStock(doc),
-        TipoDeDocumentoPrecios => ObtenerEnumeradorDeSkusDePrecios(doc),
-        _ => throw new ArgumentException(tipoDeDocumento),
-    };
-
-    private IEnumerable<KeyValuePair<string, double>> ObtenerEnumeradorDeSkusDeStock(JsonNode doc) {
-        _log.LogTrace($"{nameof(ObtenerEnumeradorDeSkusDeStock)} comenzada");
-
-        try {
-
-            var stockDeProducto = doc.Deserialize<StockDeProducto>();
-
-            foreach (StockItem stockItem in stockDeProducto!.Stock) {
-                var sku = $"{stockDeProducto.Codigo}{stockDeProducto.CodigoDeColor}.{stockItem.CodigoDeTalle}";
-                yield return new KeyValuePair<string, double>(sku, stockItem.Cantidad);
-            }
-
-        } finally {
-            _log.LogTrace($"{nameof(ObtenerEnumeradorDeSkusDeStock)} terminada");
-        }
-    }
-
-    private IEnumerable<KeyValuePair<string, double>> ObtenerEnumeradorDeSkusDePrecios(JsonNode doc) {
-        _log.LogTrace($"{nameof(ObtenerEnumeradorDeSkusDePrecios)} comenzada");
-
-        try {
-
-            var preciosDeProducto = doc.Deserialize<PreciosDeProducto>();
-
-            foreach (Precios precios in preciosDeProducto!.Precios) {
-                foreach (PreciosPorTalle preciosPorTalle in precios.PreciosPorTalle) {
-                    var sku = $"{preciosDeProducto.Codigo}{precios.CodigoDeColor}.{preciosPorTalle.CodigoDeTalle}";
-                    yield return new KeyValuePair<string, double>(sku, preciosPorTalle.Precio);
-                }
-            }
-
-        } finally {
-            _log.LogTrace($"{nameof(ObtenerEnumeradorDeSkusDePrecios)} terminada");
         }
     }
 
