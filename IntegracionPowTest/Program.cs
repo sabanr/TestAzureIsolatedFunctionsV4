@@ -20,7 +20,7 @@ IHost host = new HostBuilder()
 
                  IConfiguration configuracion = hostContext.Configuration;
                  var reintentosMaximos = Convert.ToInt32(configuracion["Configuraciones:ReintentosMaximos"]);
-                 var tiempoEntreReintentos = TimeSpan.FromMilliseconds(Convert.ToInt64(configuracion["Configuraciones:EsperaMaximaEntreReintentosMs"]));
+                 var tiempoEntreReintentosMs = Convert.ToInt64(configuracion["Configuraciones:EsperaMaximaEntreReintentosMs"]);
                  string apiPowEndPoint = configuracion["Configuraciones:PowEndpoint"] ?? string.Empty;
 
                  s.AddOptions<Configuraciones>()
@@ -44,13 +44,16 @@ IHost host = new HostBuilder()
 
                  s.AddSingleton<ValidadorDeDocumentos>();
 
-                 IAsyncPolicy<HttpResponseMessage> politicaDeReintentos = HttpPolicyExtensions.HandleTransientHttpError()
-                                                                                              .WaitAndRetryAsync(reintentosMaximos, retryAttemp => tiempoEntreReintentos);
+                 IAsyncPolicy<HttpResponseMessage> politicaDeReintentos = HttpPolicyExtensions
+                                                                            .HandleTransientHttpError()
+                                                                            .WaitAndRetryAsync(
+                                                                                               reintentosMaximos,
+                                                                                               d => TimeSpan.FromMilliseconds(d * tiempoEntreReintentosMs));
 
                  s.AddHttpClient<IApiPow, ApiPow>(cli => {
                       cli.BaseAddress = new Uri(apiPowEndPoint);
                   })
-                  .SetHandlerLifetime(TimeSpan.FromMinutes(10.0))
+                  .SetHandlerLifetime(TimeSpan.FromMinutes(15.0))
                   .AddPolicyHandler(politicaDeReintentos);
 
 
