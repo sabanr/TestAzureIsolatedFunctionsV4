@@ -1,11 +1,10 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
-using IntegracionPowTest;
-
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
+using IntegracionPowTest;
 using IntegracionPowTest.Pow;
 using IntegracionPowTest.Validadores;
 
@@ -24,12 +23,26 @@ IHost host = new HostBuilder()
                  string apiPowEndPoint = configuracion["Configuraciones:PowEndpoint"] ?? string.Empty;
 
                  s.AddOptions<Configuraciones>()
-                  .BindConfiguration(nameof(Configuraciones));
+                  .BindConfiguration(nameof(Configuraciones))
+                  .Validate(c => {
+                      if (string.IsNullOrWhiteSpace(c.PowEmail))
+                          return false;
 
+                      if (string.IsNullOrWhiteSpace(c.PowPassword))
+                          return false;
+
+                      if (string.IsNullOrWhiteSpace(c.PowEndpoint))
+                          return false;
+
+                      if (string.IsNullOrWhiteSpace(c.SucursalesCsv))
+                          return false;
+
+                      return true;
+
+                  });
+                     
                  s.PostConfigure<Configuraciones>(c => {
-                     if (string.IsNullOrWhiteSpace(c.SucursalesCsv)) 
-                         return;
-
+                     
                      foreach (int sucursalId in c.SucursalesCsv.Split(',', StringSplitOptions.RemoveEmptyEntries)
                                                  .Select(id => Convert.ToInt32(id))) {
 
@@ -46,8 +59,7 @@ IHost host = new HostBuilder()
 
                  IAsyncPolicy<HttpResponseMessage> politicaDeReintentos = HttpPolicyExtensions
                                                                             .HandleTransientHttpError()
-                                                                            .WaitAndRetryAsync(
-                                                                                               reintentosMaximos,
+                                                                            .WaitAndRetryAsync(reintentosMaximos,
                                                                                                d => TimeSpan.FromMilliseconds(d * tiempoEntreReintentosMs));
 
                  s.AddHttpClient<IApiPow, ApiPow>(cli => {
@@ -57,10 +69,7 @@ IHost host = new HostBuilder()
                   .SetHandlerLifetime(TimeSpan.FromMinutes(15.0))
                   .AddPolicyHandler(politicaDeReintentos);
 
-
              })
              .Build();
-
-// TODO: LogDebug de las configuraciones no secretas
 
 host.Run();
