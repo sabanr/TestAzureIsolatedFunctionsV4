@@ -2,8 +2,8 @@
 
 namespace IntegracionPowTest.Pow.EntidadesPow;
 
-public class RespuestaDeActualizacionDeStock {
+public record RespuestaDeActualizacionDeStock {
     [JsonPropertyName("json_stock_updater")]
-    public List<List<string>> JsonStockUpdater { get; set; }
+    public IReadOnlyList<List<string>> JsonStockUpdater { get; set; }
 }
 

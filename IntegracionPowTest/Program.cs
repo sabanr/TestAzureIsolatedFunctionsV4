@@ -52,6 +52,7 @@ IHost host = new HostBuilder()
 
                  s.AddHttpClient<IApiPow, ApiPow>(cli => {
                       cli.BaseAddress = new Uri(apiPowEndPoint);
+                      cli.DefaultRequestHeaders.Add("Accept", "application/json");
                   })
                   .SetHandlerLifetime(TimeSpan.FromMinutes(15.0))
                   .AddPolicyHandler(politicaDeReintentos);

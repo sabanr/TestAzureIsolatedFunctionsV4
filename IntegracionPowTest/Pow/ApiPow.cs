@@ -11,6 +11,7 @@ namespace IntegracionPowTest.Pow;
 public class ApiPow : IApiPow {
 
     private const string InformarStockYPrecios = "json_stock_update";
+    private const string EstadoDeSkuNoEncontrado = "not found";
 
     private readonly ILogger<ApiPow> _log;
     private readonly HttpClient _clienteHttp;
@@ -36,22 +37,18 @@ public class ApiPow : IApiPow {
 
             respuestaHttp.EnsureSuccessStatusCode();
             _log.LogDebug("Novedades informadas exitósamente");
-            
-            //string contenidoDeRespuesta = await respuestaHttp.Content.ReadAsStringAsync()
-            //                                         .ConfigureAwait(false);
 
-            //try
-            //{
-            //    var respuesta = JsonSerializer.Deserialize<RespuestaDeActualizacionDeStock>(contenidoDeRespuesta);
-            //    var numeroDeSkusNoExistentes = respuesta?.JsonStockUpdater?.Count(item => item is [_, "not found"]) ?? 0;
+            string contenidoDeRespuesta = await respuestaHttp.Content.ReadAsStringAsync()
+                                                     .ConfigureAwait(false);
+            try {
+                var respuesta = JsonSerializer.Deserialize<RespuestaDeActualizacionDeStock>(contenidoDeRespuesta);
+                int numeroDeSkusNoExistentes = respuesta?.JsonStockUpdater?.Count(item => item is [_, EstadoDeSkuNoEncontrado]) ?? 0;
 
-            //    _log.LogInformation("Pow informa {sku} SKUs no encontrados", numeroDeSkusNoExistentes);
-            //}
-            //catch (Exception)
-            //{
+                _log.LogInformation("Pow informa {sku} SKUs no encontrados", numeroDeSkusNoExistentes);
 
-            //    throw;
-            //}
+            } catch (Exception errorDeRespuesta) {
+                _log.LogWarning(errorDeRespuesta,"Error al leer la respuesta de Pow. {error}", errorDeRespuesta.Message);
+            }
 
         } finally {
             _log.LogTrace("{nom} finalizada", nameof(InformarStockYPreciosAsync));
