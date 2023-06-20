@@ -17,7 +17,7 @@ public class ValidadorDeDocumentos {
     }
 
     public (bool esValido, string error) DeboProcesarDocumento(JsonNode doc, string tipoDeDocumento) {
-        _log.LogTrace("{0} comenzada", nameof(DeboProcesarDocumento));
+        _log.LogTrace("{nom} comenzada", nameof(DeboProcesarDocumento));
 
         try {
 
@@ -49,12 +49,12 @@ public class ValidadorDeDocumentos {
             return (true, "");
 
         } catch (Exception errorEnValidacion) {
-            _log.LogError(errorEnValidacion,"No se pudo validar el documento. {0}", errorEnValidacion.Message);
+            _log.LogError(errorEnValidacion,"No se pudo validar el documento. {msg}", errorEnValidacion.Message);
 
             throw;
 
         } finally {
-            _log.LogTrace("{0} terminada", nameof(DeboProcesarDocumento));
+            _log.LogTrace("{nom} terminada", nameof(DeboProcesarDocumento));
         }
     }
 }

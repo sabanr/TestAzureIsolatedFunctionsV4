@@ -13,6 +13,11 @@ public  class Configuraciones {
     /// Lista de precios Id, cuyos precios vamos a informar
     /// </summary>
     public int ListaDePreciosId { get; set; }
+
+    /// <summary>
+    /// El endpoint de la API de POW para actualizar precios y stock
+    /// </summary>
+    public string PowEndpoint { get; set; } = string.Empty;
     /// <summary>
     /// Obtiene el email asociado a la cuenta API de POW
     /// </summary>

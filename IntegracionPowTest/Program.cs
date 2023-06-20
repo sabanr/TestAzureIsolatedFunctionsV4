@@ -6,12 +6,22 @@ using IntegracionPowTest;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
+using IntegracionPowTest.Pow;
 using IntegracionPowTest.Validadores;
+
+using Microsoft.Extensions.Configuration;
+
+using Polly;
+using Polly.Extensions.Http;
 
 IHost host = new HostBuilder()
              .ConfigureFunctionsWorkerDefaults()
-             .ConfigureServices(s => {
-                 s.AddHttpClient();
+             .ConfigureServices((hostContext, s) => {
+
+                 IConfiguration configuracion = hostContext.Configuration;
+                 var reintentosMaximos = Convert.ToInt32(configuracion["Configuraciones:ReintentosMaximos"]);
+                 var tiempoEntreReintentos = TimeSpan.FromMilliseconds(Convert.ToInt64(configuracion["Configuraciones:EsperaMaximaEntreReintentosMs"]));
+                 string apiPowEndPoint = configuracion["Configuraciones:PowEndpoint"] ?? string.Empty;
 
                  s.AddOptions<Configuraciones>()
                   .BindConfiguration(nameof(Configuraciones));
@@ -21,7 +31,7 @@ IHost host = new HostBuilder()
                          return;
 
                      foreach (int sucursalId in c.SucursalesCsv.Split(',', StringSplitOptions.RemoveEmptyEntries)
-                                                           .Select(id => Convert.ToInt32(id))) {
+                                                 .Select(id => Convert.ToInt32(id))) {
 
                          c.SucursalesHabilitadas.Add(sucursalId);
                      }
@@ -33,6 +43,17 @@ IHost host = new HostBuilder()
                  });
 
                  s.AddSingleton<ValidadorDeDocumentos>();
+
+                 IAsyncPolicy<HttpResponseMessage> politicaDeReintentos = HttpPolicyExtensions.HandleTransientHttpError()
+                                                                                              .WaitAndRetryAsync(reintentosMaximos, retryAttemp => tiempoEntreReintentos);
+
+                 s.AddHttpClient<IApiPow, ApiPow>(cli => {
+                      cli.BaseAddress = new Uri(apiPowEndPoint);
+                  })
+                  .SetHandlerLifetime(TimeSpan.FromMinutes(10.0))
+                  .AddPolicyHandler(politicaDeReintentos);
+
+
              })
              .Build();
 

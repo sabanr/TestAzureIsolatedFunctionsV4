@@ -1,6 +1,6 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace IntegracionPowTest.EntidadesPow;
+namespace IntegracionPowTest.Pow.EntidadesPow;
 
 public class VariantePow : IComparable<VariantePow>, IComparable<string>
 {

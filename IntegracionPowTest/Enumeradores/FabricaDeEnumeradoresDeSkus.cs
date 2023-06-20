@@ -1,14 +1,10 @@
-﻿using System.Text.Json.Nodes;
-
-using Microsoft.Extensions.Logging;
-
-namespace IntegracionPowTest.Enumeradores;
+﻿namespace IntegracionPowTest.Enumeradores;
 
 public static class FabricaDeEnumeradoresDeSkus {
 
     public const string TipoDeDocumentoPrecios = "PreciosDeProducto";
     public const string TipoDeDocumentoStock = "StockDeProducto";
-    public static IEnumeradorDeSkus ObtenerEnumeradorDeSkus(ILogger log, string tipoDeDocumento, JsonNode doc) => tipoDeDocumento switch
+    public static IEnumeradorDeSkus ObtenerEnumeradorDeSkus(string tipoDeDocumento) => tipoDeDocumento switch
     {
         TipoDeDocumentoStock => new EnumeradorDeSkusDeStock(),
         TipoDeDocumentoPrecios => new EnumeradorDeSkusDePrecios(),

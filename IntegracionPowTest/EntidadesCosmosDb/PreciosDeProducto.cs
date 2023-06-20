@@ -1,6 +1,6 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace IntegracionPowTest.Entidades;
+namespace IntegracionPowTest.EntidadesCosmosDb;
 
 public record PreciosDeProducto {
     [JsonPropertyName("id")]
