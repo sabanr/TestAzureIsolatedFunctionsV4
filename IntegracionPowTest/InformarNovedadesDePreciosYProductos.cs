@@ -13,7 +13,7 @@ namespace IntegracionPowTest;
 
 public class InformarNovedadesDePreciosYProductos {
 
-    private readonly ILogger _log;
+    private readonly ILogger<InformarNovedadesDePreciosYProductos> _log;
     private readonly HttpClient _clienteHttp;
     private readonly Configuraciones _configuraciones;
     private readonly ValidadorDeDocumentos _validadorDeDocumentos;
@@ -50,7 +50,7 @@ public class InformarNovedadesDePreciosYProductos {
                 _log.LogDebug($"Procesando lote {numeroDeLote}");
 
                 foreach (JsonObject doc in cambios) {
-                    _log.LogTrace($"Procesando documento {doc["Id"]}");
+                    _log.LogTrace($"Procesando documento {doc["id"]!.GetValue<string>()}");
 
                     var tipoDeDocumento = doc["TipoDeDocumento"]!.GetValue<string>();
 
@@ -65,6 +65,11 @@ public class InformarNovedadesDePreciosYProductos {
                 }
 
                 int numeroDeVariantes = datos.Values.Sum(n => n.Variantes.Count);
+
+                if (numeroDeVariantes == 0) {
+                    _log.LogDebug($"Lote {numeroDeLote} fue procesado pero no tiene variantes para informar");
+                    return;
+                }
 
                 _log.LogDebug($"Lote {numeroDeLote} procesado. {numeroDeVariantes} variantes encontradas");
 
@@ -84,7 +89,7 @@ public class InformarNovedadesDePreciosYProductos {
         _log.LogTrace($"{nameof(ProcesarDocumento)} comenzada");
 
         try {
-            int sucursalId = doc["sucursal"]?["Id"]?.GetValue<int>() ?? -1;
+            int sucursalId = doc["sucursal"]?["id"]?.GetValue<int>() ?? -1;
 
             if (datos.TryGetValue(sucursalId, out NovedadPow? novedad) == false) {
                 novedad = new NovedadPow
@@ -146,10 +151,10 @@ public class InformarNovedadesDePreciosYProductos {
                         return;
 
                     } catch (Exception error) {
-                        _log.LogError($"No se pudieron enviar las novedades a Pow. Error: {error.Message}. Se reintentará nuevamente");
+                        _log.LogError(error, "No se pudieron enviar las novedades a Pow. Error: {0}. Se reintentará nuevamente", error.Message);
 
                         if (reintentos == reintentosMaximos) {
-                            _log.LogError($"Se llego al máximo numero de reintentos. No se volverá a reintentar");
+                            _log.LogError(error, "Se llego al máximo numero de reintentos. No se volverá a reintentar");
                             throw;
                         }
                     }
