@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
 using IntegracionPowTest;
+
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
