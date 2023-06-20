@@ -23,7 +23,7 @@ public class ApiPow : IApiPow {
     }
 
     public async Task InformarStockYPreciosAsync(NovedadPow novedadPow) {
-        _log.LogTrace($"{nameof(InformarStockYPreciosAsync)} comenzada");
+        _log.LogTrace("{nom} comenzada", nameof(InformarStockYPreciosAsync));
 
         try {
             
@@ -31,17 +31,30 @@ public class ApiPow : IApiPow {
             string json = JsonSerializer.Serialize(novedadPow, _opcionesDeSerializacionPredeterminada);
             
             _log.LogDebug("Enviando novedades a Pow");
-            HttpResponseMessage respuesta = await _clienteHttp.PostAsync(InformarStockYPrecios, new StringContent(json, Encoding.UTF8, MediaTypeNames.Application.Json))
+            HttpResponseMessage respuestaHttp = await _clienteHttp.PostAsync(InformarStockYPrecios, new StringContent(json, Encoding.UTF8, MediaTypeNames.Application.Json))
                                                               .ConfigureAwait(false);
 
-            respuesta.EnsureSuccessStatusCode();
+            respuestaHttp.EnsureSuccessStatusCode();
+            _log.LogDebug("Novedades informadas exitósamente");
+            
+            //string contenidoDeRespuesta = await respuestaHttp.Content.ReadAsStringAsync()
+            //                                         .ConfigureAwait(false);
 
-            // TODO: LA API devuelve informacion sobre SKUs inexistentes. Se pueden devolver aqui
+            //try
+            //{
+            //    var respuesta = JsonSerializer.Deserialize<RespuestaDeActualizacionDeStock>(contenidoDeRespuesta);
+            //    var numeroDeSkusNoExistentes = respuesta?.JsonStockUpdater?.Count(item => item is [_, "not found"]) ?? 0;
 
-            _log.LogDebug("Novedades recibidas exitósamente");
+            //    _log.LogInformation("Pow informa {sku} SKUs no encontrados", numeroDeSkusNoExistentes);
+            //}
+            //catch (Exception)
+            //{
+
+            //    throw;
+            //}
 
         } finally {
-            _log.LogTrace($"{nameof(InformarStockYPreciosAsync)} finalizada");
+            _log.LogTrace("{nom} finalizada", nameof(InformarStockYPreciosAsync));
         }
     }
 }
