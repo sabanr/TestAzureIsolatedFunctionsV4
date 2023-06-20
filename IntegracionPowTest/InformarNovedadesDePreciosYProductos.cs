@@ -13,18 +13,21 @@ namespace IntegracionPowTest;
 
 public class InformarNovedadesDePreciosYProductos {
 
+    private const string InformarStockYPrecios = "json_stock_update";
+
     private readonly ILogger<InformarNovedadesDePreciosYProductos> _log;
-    private readonly HttpClient _clienteHttp;
     private readonly Configuraciones _configuraciones;
     private readonly ValidadorDeDocumentos _validadorDeDocumentos;
     private readonly JsonSerializerOptions _opcionesDeSerializacionPredeterminada;
-
-    public InformarNovedadesDePreciosYProductos(ILoggerFactory creadorDeLoggers, IHttpClientFactory creadorDeClienteHttp, IOptions<Configuraciones> opciones, JsonSerializerOptions opcionesDeSerializacionJson, ValidadorDeDocumentos validadorDeDocumentos) {
+    private readonly HttpClient _clientePow;
+    
+    public InformarNovedadesDePreciosYProductos(ILoggerFactory creadorDeLoggers, IHttpClientFactory creadorDeClienteHttp, IOptions<Configuraciones> opciones, ValidadorDeDocumentos validadorDeDocumentos, JsonSerializerOptions opcionesDeSerializacionPredeterminada) {
         _log = creadorDeLoggers.CreateLogger<InformarNovedadesDePreciosYProductos>();
         _configuraciones = opciones.Value;
         _validadorDeDocumentos = validadorDeDocumentos;
-        _clienteHttp = creadorDeClienteHttp.CreateClient();
-        _opcionesDeSerializacionPredeterminada = opcionesDeSerializacionJson;
+        _opcionesDeSerializacionPredeterminada = opcionesDeSerializacionPredeterminada;
+        _clientePow = creadorDeClienteHttp.CreateClient();
+        _clientePow.BaseAddress = new Uri("http://staging.sweet.com.ar/");
     }
 
     [Function("InformarNovedadesDePreciosYProductos")]
@@ -73,8 +76,10 @@ public class InformarNovedadesDePreciosYProductos {
 
                 _log.LogDebug($"Lote {numeroDeLote} procesado. {numeroDeVariantes} variantes encontradas");
 
-                await EnviarNovedadesConReintentosAsync(datos, _configuraciones.ReintentosMaximos, _configuraciones.EsperaMaximaEntreReintentosMs);
-                
+                foreach (NovedadPow novedadPow in datos.Values) {
+                    _log.LogInformation($"Enviando {novedadPow.Variantes.Count} novedades de precios y stock");
+                    await InformarStockYPreciosAsync(novedadPow);
+                }
             }
          
         } catch (Exception ex) {
@@ -131,45 +136,47 @@ public class InformarNovedadesDePreciosYProductos {
         }
     }
 
-    private async Task EnviarNovedadesConReintentosAsync(Dictionary<int, NovedadPow> datos, int reintentosMaximos, int esperaMaximaEntreReintentosMs) {
-        _log.LogTrace($"{nameof(EnviarNovedadesConReintentosAsync)} comenzada");
+    public async Task InformarStockYPreciosAsync(NovedadPow novedadPow) {
+        _log.LogTrace($"{nameof(InformarStockYPreciosAsync)} comenzada");
 
         try {
-            foreach (NovedadPow novedadPow in datos.Values) {
-                _log.LogDebug($"{nameof(EnviarNovedadesConReintentosAsync)} Serializando las novedades a JSON");
-                string json = JsonSerializer.Serialize(novedadPow, _opcionesDeSerializacionPredeterminada);
+            
+            _log.LogDebug("Serializando las novedades a JSON");
+            string json = JsonSerializer.Serialize(novedadPow, _opcionesDeSerializacionPredeterminada);
 
-                for (var reintentos = 0; reintentos < reintentosMaximos; reintentos++) {
-                    try {
+            for (var reintentos = 0; reintentos < _configuraciones.ReintentosMaximos; reintentos++) {
+                try {
 
-                        _log.LogDebug($"{nameof(EnviarNovedadesConReintentosAsync)} Enviando novedades a Pow");
-                        HttpResponseMessage respuesta = await _clienteHttp.PostAsync("http://staging.sweet.com.ar/json_stock_update", new StringContent(json));
+                    _log.LogDebug("Enviando novedades a Pow");
+                    HttpResponseMessage respuesta = await _clientePow.PostAsync(InformarStockYPrecios, new StringContent(json));
 
-                        respuesta.EnsureSuccessStatusCode();
+                    respuesta.EnsureSuccessStatusCode();
 
-                        _log.LogDebug($"{nameof(EnviarNovedadesConReintentosAsync)} Novedades recibidas exitósamente");
-                        return;
+                    // TODO: LA API devuelve informacion sobre SKUs inexistentes. Se pueden devolver aqui
 
-                    } catch (Exception error) {
-                        _log.LogError(error, "No se pudieron enviar las novedades a Pow. Error: {0}. Se reintentará nuevamente", error.Message);
+                    _log.LogDebug("Novedades recibidas exitósamente");
+                    return;
 
-                        if (reintentos == reintentosMaximos) {
-                            _log.LogError(error, "Se llego al máximo numero de reintentos. No se volverá a reintentar");
-                            throw;
-                        }
+                } catch (Exception error) {
+                    _log.LogError(error, "No se pudieron enviar las novedades a Pow. Error: {0}. Se reintentará nuevamente", error.Message);
+
+                    if (reintentos == _configuraciones.ReintentosMaximos) {
+                        _log.LogError(error, "Se llego al máximo numero de reintentos. No se volverá a reintentar");
+                        throw;
                     }
-
-                    // Espero antes del proximo reintento
-                    var rand = new Random();
-                    int tiempoDeEsperaMs = rand.Next(50, esperaMaximaEntreReintentosMs + 1);
-
-                    _log.LogWarning($"Esperado {tiempoDeEsperaMs}ms para reintentar...");
-                    await Task.Delay(tiempoDeEsperaMs);
                 }
+
+                // Espero antes del proximo reintento
+                var rand = new Random();
+                int tiempoDeEsperaMs = rand.Next(50, _configuraciones.EsperaMaximaEntreReintentosMs + 1);
+
+                _log.LogWarning($"Esperado {tiempoDeEsperaMs}ms para reintentar...");
+                await Task.Delay(tiempoDeEsperaMs);
             }
+            
 
         } finally {
-            _log.LogTrace($"{nameof(EnviarNovedadesConReintentosAsync)} finalizada");
+            _log.LogTrace($"{nameof(InformarStockYPreciosAsync)} finalizada");
         }
     }
 }

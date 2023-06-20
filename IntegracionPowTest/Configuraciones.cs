@@ -2,24 +2,12 @@
 
 public  class Configuraciones {
 
-    private string _sucursalesCsv = string.Empty;
-    private string SucursalesCsv {
-        get { return _sucursalesCsv; }
-        set {
-            _sucursalesCsv = value;
+    public string SucursalesCsv { get; set; } = string.Empty;
 
-            if (string.IsNullOrWhiteSpace(_sucursalesCsv))
-                return;
-
-            foreach(string sucursalId in _sucursalesCsv.Split(',', StringSplitOptions.RemoveEmptyEntries)) {
-                SucursalesHabilitadas.Add(Convert.ToInt32(sucursalId));
-            }
-        }
-    }
     /// <summary>
     /// Lista de sucursales Id, cuyos stock vamos a informar
     /// </summary>
-    public HashSet<int> SucursalesHabilitadas { get; } = new();
+    public HashSet<int> SucursalesHabilitadas { get; set; } = new HashSet<int>();
 
     /// <summary>
     /// Lista de precios Id, cuyos precios vamos a informar
