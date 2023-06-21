@@ -1,3 +1,4 @@
+#nullable enable
 using System.Text.Json.Nodes;
 
 using IntegracionPowTest.Enumeradores;
@@ -79,6 +80,8 @@ public class InformarNovedadesDePreciosYProductos {
          
         } catch (Exception ex) {
             _log.LogCritical(ex, "Error critico encontrado. {e}", ex.Message);
+
+            throw;
 
         } finally {
             _log.LogTrace($"{nameof(InformarNovedadesDePreciosYProductos)} terminada");
