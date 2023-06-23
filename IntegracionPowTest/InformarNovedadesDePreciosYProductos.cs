@@ -1,4 +1,3 @@
-#nullable enable
 using System.Text.Json.Nodes;
 
 using IntegracionPowTest.Enumeradores;
@@ -94,7 +93,8 @@ public class InformarNovedadesDePreciosYProductos {
         try {
             int sucursalId = doc["sucursal"]?["id"]?.GetValue<int>() ?? -1;
 
-            if (datos.TryGetValue(sucursalId, out NovedadPow? novedad) == false) {
+#pragma warning disable CS8600 // Converting null literal or possible null value to non-nullable type.
+            if (datos.TryGetValue(sucursalId, out NovedadPow novedad) == false) {
                 novedad = new NovedadPow
                 {
                     Email = _configuraciones.PowEmail,
@@ -103,12 +103,12 @@ public class InformarNovedadesDePreciosYProductos {
                     Variantes = new SortedSet<VariantePow>()
                 };
                 datos.Add(sucursalId, novedad);
-            }
+            } 
 
             IEnumeradorDeSkus enumeradorDeSkus = FabricaDeEnumeradoresDeSkus.ObtenerEnumeradorDeSkus(tipoDeDocumento);
             foreach (KeyValuePair<string, double> sku in enumeradorDeSkus.Skus(_log, doc)) {
 
-                if (novedad.Variantes.TryGetValue(new VariantePow { Codigo = sku.Key }, out VariantePow? variante) == false) {
+                if (novedad.Variantes.TryGetValue(new VariantePow { Codigo = sku.Key }, out VariantePow variante) == false) {
                     variante = new VariantePow
                     {
                         Codigo = sku.Key

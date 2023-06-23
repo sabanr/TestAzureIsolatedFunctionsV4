@@ -6,3 +6,4 @@
 using System.Diagnostics.CodeAnalysis;
 
 [assembly: SuppressMessage("Style", "IDE0008:Use explicit type")]
+[assembly: SuppressMessage("Style", "IDE0008:Use explicit type")]
